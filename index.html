@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+      integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l"
+      crossorigin="anonymous"
+    />
+
+    <title>Heap Visualization Tool</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Heap Visualization Tool</h1>
+
+      <div>
+        <div class="form-group">
+          <label for="heap_as_array">Heap as Array</label>
+          <textarea class="form-control" id="heap_as_array" rows="10">
+    -105, 5, 4, 3, 221,
+    -102, 4, 4, 3,
+    -103, 8, 6, 6, 2, 8, 5, 1,
+    -102, 5, 4, 4, 35,
+    -104, 7, 5, 6, 7, 5, 0,
+    -105, 6, 4, 3, 221, 47,
+    -103, 8, 6, 6, 4, 23, 17, 1,
+    -106, 4, 5, 4,
+    -100, 5, 6, 5, 4,
+    -102, 6, 4, 5, 35, 47,
+    -104, 7, 5, 6, 22, 17, 29,
+    -105, 8, 4, 3, 221, 216, 88, 83,
+    -100, 5, 6, 5, 1,
+    -101, 5, 6, 5, false,
+    -100, 5, 6, 5, 1,
+    -100, 5, 6, 5, 3,
+    -102, 6, 4, 5, 35, 88,
+    -104, 7, 5, 6, 45, 52, 65,
+    -105, 8, 4, 3, 216, 211, 129, 124,
+    -100, 5, 6, 5, 1,
+    -101, 5, 6, 5, false,
+    -100, 5, 6, 5, 1,
+    -100, 5, 6, 5, 2,
+    -102, 6, 4, 5, 35, 129,
+    -104, 7, 5, 6, 45, 93, 106,
+    -105, 8, 4, 3, 211, 206, 170, 165,
+    -100, 5, 6, 5, 1,
+    -101, 5, 6, 5, false,
+    -100, 5, 6, 5, 1,
+    -100, 5, 6, 5, 1,
+    -102, 6, 4, 5, 35, 170,
+    -104, 7, 5, 6, 45, 134, 147,
+    -105, 8, 4, 3, 206, 196, , ,
+    -100, 5, 6, 5, 1,
+    -101, 5, 6, 5, true,
+    -100, 5, 6, 5, 1,
+    -100, 5, 6, 5, 2,
+    -100, 5, 6, 5, 6,
+    -100, 5, 6, 5, 24,
+        </textarea
+          >
+        </div>
+        <button class="btn btn-primary" id="draw">DRAW</button>
+      </div>
+
+      <div id="slot"></div>
+    </div>
+
+    <script
+      src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+      integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns"
+      crossorigin="anonymous"
+    ></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.js"></script>
+
+    <script>
+      //   const heap = ;
+
+      const TAG_SLOT = 0;
+      const SIZE_SLOT = 1;
+      const FIRST_CHILD_SLOT = 2;
+      const LAST_CHILD_SLOT = 3;
+
+      const NUMBER_TAG = -100;
+      const BOOL_TAG = -101;
+      const UNDEFINED_TAG = -106;
+      const NUMBER_VALUE_SLOT = 4;
+
+      const ENV_TAG = -102;
+      const OS_TAG = -105;
+
+      const CLOSURE_TAG = -103;
+      const CLOSURE_OS_SIZE_SLOT = 4;
+      const CLOSURE_ADDRESS_SLOT = 5;
+      const CLOSURE_ENV_SLOT = 6;
+      const CLOSURE_ENV_EXTENSION_COUNT_SLOT = 7;
+
+      const RTS_FRAME_TAG = -104;
+      const RTS_FRAME_PC_SLOT = 4;
+      const RTS_FRAME_ENV_SLOT = 5;
+      const RTS_FRAME_OS_SLOT = 6;
+
+      function extract_node(heap, index) {
+        const tag = heap[index + TAG_SLOT];
+        const size = heap[index + SIZE_SLOT];
+        const first_child = heap[index + FIRST_CHILD_SLOT];
+        const last_child = heap[index + LAST_CHILD_SLOT];
+
+        const node = {
+          id: index,
+          name: undefined,
+          size: size,
+          segments: [
+            `{ <tag> tag | ${tag} }`,
+            `{ size | ${size} }`,
+            `{ first | ${first_child} }`,
+            `{ last | ${last_child} }`,
+          ],
+          edges: [],
+        };
+
+        switch (tag) {
+          case NUMBER_TAG:
+            node.name = node.name || `NUMBER @ ${index}`;
+          case BOOL_TAG:
+            node.name = node.name || `BOOL @ ${index}`;
+            node.segments.push(`{ value: ${heap[index + NUMBER_VALUE_SLOT]} }`);
+          case UNDEFINED_TAG:
+            node.name = node.name || `UNDEFINED @ ${index}`;
+            break;
+
+          case OS_TAG:
+            node.name = node.name || `OS @ ${index}`;
+          case ENV_TAG:
+            node.name = node.name || `ENV @ ${index}`;
+            const entries = heap.slice(index + first_child, index + size);
+            if (entries.length) {
+              let entry_segments = [];
+              for (const entry of entries) {
+                if (entry) {
+                  entry_segments.push(`<${entry}> ${entry}`);
+                  node.edges.push(`${node.id}:${entry} -> ${entry}:tag`);
+                } else {
+                  entry_segments.push("");
+                }
+              }
+
+              node.segments.push(`{ entries | ${entry_segments.join(" | ")} }`);
+            }
+            break;
+
+          case CLOSURE_TAG:
+            node.name = node.name || `CLOSURE @ ${index}`;
+
+            const os_size = heap[index + CLOSURE_OS_SIZE_SLOT];
+            const address = heap[index + CLOSURE_ADDRESS_SLOT];
+            const env = heap[index + CLOSURE_ENV_SLOT];
+            const env_ext_cnt = heap[index + CLOSURE_ENV_EXTENSION_COUNT_SLOT];
+
+            node.segments.push(
+              ...[
+                `{ os_size | ${os_size} }`,
+                `{ address | ${address} }`,
+                `{ env | <${env}> ${env} }`,
+                `{ env_ext_cnt | ${env_ext_cnt} }`,
+              ]
+            );
+
+            node.edges.push(`${node.id}:${env} -> ${env}:tag`);
+            break;
+
+          case RTS_FRAME_TAG:
+            node.name = node.name || `RTS @ ${index}`;
+
+            const frame_pc = heap[index + RTS_FRAME_PC_SLOT];
+            const frame_env = heap[index + RTS_FRAME_ENV_SLOT];
+            const frame_os = heap[index + RTS_FRAME_OS_SLOT];
+
+            node.segments.push(
+              ...[
+                `{ pc | ${frame_pc} }`,
+                `{ env | <${frame_env}> ${frame_env} }`,
+                `{ os | <${frame_os}> ${frame_os} }`,
+              ]
+            );
+
+            node.edges.push(`${node.id}:${frame_env} -> ${frame_env}:tag`);
+            node.edges.push(`${node.id}:${frame_os} -> ${frame_os}:tag`);
+
+            break;
+
+          default:
+            window.alert(`unexpected node tag ${tag}`);
+        }
+
+        return node;
+      }
+
+      $(document).ready(() => {
+        $("#draw").click(() => {
+          const heap = $("#heap_as_array")
+            .val()
+            .split(",")
+            .map((x) => parseInt(x.trim()));
+          console.log(heap);
+          while (!heap[heap.length - 1]) {
+            heap.pop();
+          }
+
+          let current_node_idx = 0;
+          const dot_nodes = [];
+          const dot_edges = [];
+
+          while (current_node_idx < heap.length) {
+            console.log(current_node_idx);
+            const node = extract_node(heap, current_node_idx);
+
+            dot_nodes.push(
+              `${node.id} [label="${node.name} | ${node.segments.join(" | ")}"]`
+            );
+            dot_edges.push(...node.edges);
+
+            current_node_idx += node.size;
+          }
+
+          const dot = `
+digraph structs {
+    rankdir=LR
+    splines=curve
+    node [shape=record];
+    ${dot_nodes.join("\n")}
+    ${dot_edges.join("\n")}
+}`;
+
+          console.log(dot);
+
+          var viz = new Viz();
+
+          viz
+            .renderSVGElement(dot)
+            .then((element) => {
+              document.getElementById("slot").appendChild(element);
+            })
+            .catch((error) => {
+              // Create a new Viz instance (@see Caveats page for more info)
+              viz = new Viz();
+
+              // Possibly display the error
+              console.error(error);
+            });
+        });
+      });
+    </script>
+  </body>
+</html>
